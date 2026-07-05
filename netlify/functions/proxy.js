@@ -3,10 +3,10 @@ import https from 'https';
 import http from 'http';
 import { ProxyAgent } from 'proxy-agent';
 
-const FORWARD_PROXY = process.env.FORWARD_PROXY_URL || 'http://hkuvwqvj:t5hsr3e3fjw2@142.111.67.146:5611';
-const agent = new ProxyAgent({
+const FORWARD_PROXY = process.env.FORWARD_PROXY_URL;
+const agent = FORWARD_PROXY ? new ProxyAgent({
   getProxyForUrl: () => FORWARD_PROXY
-});
+}) : null;
 
 export const handler = async (event) => {
   // Ambil URL target dari query parameter 'url'
@@ -122,9 +122,12 @@ export const handler = async (event) => {
       const reqOptions = {
         method: event.httpMethod,
         headers: clientHeaders,
-        agent: agent,
         timeout: 10000
       };
+
+      if (agent) {
+        reqOptions.agent = agent;
+      }
 
       const req = requestLib.request(targetUrl.href, reqOptions, (res) => {
         const chunks = [];
