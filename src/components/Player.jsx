@@ -65,17 +65,16 @@ const Player = ({ source, title }) => {
       if (drmInfo?.type === 'clearkey' && drmInfo.clearKeys) {
         drmConfig.clearKeys = drmInfo.clearKeys;
       } else if (drmInfo?.type === 'widevine' && drmInfo.licenseServer) {
-        let licenseUrl = drmInfo.licenseServer;
-        const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
-        if (licenseUrl.startsWith('http') && !licenseUrl.includes('localhost') && !licenseUrl.includes(proxy)) {
-          if (proxy.includes('localhost') || proxy.includes('127.0.0.1')) {
-            licenseUrl = `${proxy}/${licenseUrl}`;
-          } else {
-            licenseUrl = `${proxy}?url=${encodeURIComponent(licenseUrl)}`;
-          }
-        }
+        // License URL akan diproxy otomatis oleh request filter di bawah
         drmConfig.servers = {
-          'com.widevine.alpha': licenseUrl,
+          'com.widevine.alpha': drmInfo.licenseServer,
+        };
+        // Tambahkan robustness level untuk menghindari warning Shaka
+        drmConfig.advanced = {
+          'com.widevine.alpha': {
+            videoRobustness: 'SW_SECURE_CRYPTO',
+            audioRobustness: 'SW_SECURE_CRYPTO',
+          },
         };
       }
 

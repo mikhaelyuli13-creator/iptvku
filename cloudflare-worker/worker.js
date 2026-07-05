@@ -41,10 +41,20 @@ export default {
     const outHeaders = new Headers();
 
     // Salin beberapa header asli dari client
-    const allowedHeaders = ['accept', 'accept-language', 'range', 'if-range', 'if-modified-since', 'cache-control'];
+    const allowedHeaders = ['accept', 'accept-language', 'range', 'if-range', 'if-modified-since', 'cache-control', 'content-type'];
     for (const [key, value] of request.headers.entries()) {
       if (allowedHeaders.includes(key.toLowerCase())) {
         outHeaders.set(key, value);
+      }
+    }
+
+    // Baca body untuk POST/PUT (DRM license request menggunakan POST binary body)
+    let reqBody = undefined;
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      try {
+        reqBody = await request.arrayBuffer();
+      } catch (_) {
+        reqBody = undefined;
       }
     }
 
@@ -85,7 +95,7 @@ export default {
       const response = await fetch(targetUrl.href, {
         method: request.method,
         headers: outHeaders,
-        body: request.method !== 'GET' && request.method !== 'HEAD' ? request.body : undefined,
+        body: reqBody,
         redirect: 'follow',
       });
 
