@@ -57,10 +57,17 @@ export default {
     // Bangun headers untuk request ke server target
     const outHeaders = new Headers();
 
-    // Salin beberapa header asli dari client
-    const allowedHeaders = ['accept', 'accept-language', 'range', 'if-range', 'if-modified-since', 'cache-control', 'content-type'];
+    // Salin hampir semua header asli dari client (agar token, auth, DRM headers tetap utuh)
     for (const [key, value] of request.headers.entries()) {
-      if (allowedHeaders.includes(key.toLowerCase())) {
+      const lowerKey = key.toLowerCase();
+      // Lewati header yang akan ditulis ulang atau spesifik Cloudflare
+      if (
+        lowerKey !== 'host' &&
+        lowerKey !== 'origin' &&
+        lowerKey !== 'referer' &&
+        !lowerKey.startsWith('cf-') &&
+        !lowerKey.startsWith('x-forwarded-')
+      ) {
         outHeaders.set(key, value);
       }
     }

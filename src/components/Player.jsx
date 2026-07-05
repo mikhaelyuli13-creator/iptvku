@@ -69,13 +69,6 @@ const Player = ({ source, title }) => {
         drmConfig.servers = {
           'com.widevine.alpha': drmInfo.licenseServer,
         };
-        // Set ke empty string untuk menghindari console warning tanpa memicu config error
-        drmConfig.advanced = {
-          'com.widevine.alpha': {
-            videoRobustness: '',
-            audioRobustness: '',
-          },
-        };
       }
 
       player.configure({
