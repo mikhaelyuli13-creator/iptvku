@@ -94,6 +94,26 @@ const Player = ({ source, title }) => {
                       source?.name?.toLowerCase().includes('korea') || 
                       source?.country === 'KR';
 
+      // Daftar domain yang bermasalah jika di-proxy lewat Cloudflare (karena SSL 525/526, rate limit 429, atau blokir IP Cloudflare)
+      const netlifyOverrideDomains = [
+        'workers.dev',
+        'indihometv.com',
+        'streamlock.net',
+        'jejumbc.com',
+        'tvchosun.com',
+        'chmbc.co.kr',
+        'tjmbc.co.kr',
+        'akamaized.net',
+        'nowcdn.co.kr',
+        'webcast.go.kr',
+        'iscs.co.kr',
+        'ctnd.com',
+        'ktv.go.kr',
+        'obs.co.kr'
+      ];
+
+      const shouldOverrideToNetlify = netlifyOverrideDomains.some(domain => url.includes(domain)) && !url.includes(cleanProxy);
+
       let activeProxy = cleanProxy;
       if (isKorea) {
         if (cleanProxy.includes('/functions/proxy')) {
@@ -102,9 +122,11 @@ const Player = ({ source, title }) => {
           // Jika menggunakan Cloudflare Worker di produksi, alihkan khusus Korea ke Netlify proxy-korea
           activeProxy = 'https://iptvku.netlify.app/.netlify/functions/proxy-korea';
         }
-      } else if (url.includes('workers.dev') && !url.includes(cleanProxy)) {
-        // Alihkan target workers.dev lain ke Netlify Proxy untuk menghindari Cloudflare-to-Cloudflare rate-limit (429)
-        if (cleanProxy.includes('workers.dev')) {
+      } else if (shouldOverrideToNetlify) {
+        // Alihkan target bermasalah ke Netlify Proxy agar lancar (mengabaikan error sertifikat SSL & bypass Cloudflare rate-limits)
+        if (cleanProxy.includes('localhost') || cleanProxy.includes('127.0.0.1')) {
+          activeProxy = cleanProxy;
+        } else {
           activeProxy = 'https://iptvku.netlify.app/.netlify/functions/proxy';
         }
       }

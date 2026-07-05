@@ -200,7 +200,8 @@ export const handler = async (event) => {
       const reqOptions = {
         method: event.httpMethod,
         headers: clientHeaders,
-        timeout: 12000
+        timeout: 12000,
+        rejectUnauthorized: false
       };
 
       if (agent) {
