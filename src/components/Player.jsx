@@ -93,22 +93,43 @@ const Player = ({ source, title }) => {
         drm: drmConfig,
       });
 
-      // ---- Request filter for custom headers ----
-      if (hdrs && (hdrs.referer || hdrs.userAgent)) {
-        player.getNetworkingEngine().registerRequestFilter((type, request) => {
-          if (hdrs.referer) {
-            request.headers['X-Proxy-Referer'] = hdrs.referer;
+      const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
+      const isLocalProxy = proxy.includes('localhost') || proxy.includes('127.0.0.1');
+
+      // ---- Request filter: Proxy SEMUA request Shaka (manifest + segmen) ----
+      player.getNetworkingEngine().registerRequestFilter((type, request) => {
+        const originalUrl = request.uris[0];
+        if (!originalUrl) return;
+
+        // Tambahkan custom headers jika ada
+        if (hdrs?.referer) request.headers['X-Proxy-Referer'] = hdrs.referer;
+        if (hdrs?.userAgent) request.headers['X-Proxy-User-Agent'] = hdrs.userAgent;
+
+        // Proxy semua request yang belum melalui proxy
+        if (originalUrl.startsWith('http') &&
+            !originalUrl.includes('localhost') &&
+            !originalUrl.includes('127.0.0.1') &&
+            !originalUrl.includes(proxy)) {
+          if (isLocalProxy) {
+            request.uris = [`${proxy}/${originalUrl}`];
+          } else {
+            request.uris = [`${proxy}?url=${encodeURIComponent(originalUrl)}`];
           }
-          if (hdrs.userAgent) {
-            request.headers['X-Proxy-User-Agent'] = hdrs.userAgent;
-          }
-        });
+        }
+      });
+
+      let playUrl = url;
+      if (playUrl.startsWith('http') && !playUrl.includes('localhost') && !playUrl.includes(proxy)) {
+        if (isLocalProxy) {
+          playUrl = `${proxy}/${playUrl}`;
+        } else {
+          playUrl = `${proxy}?url=${encodeURIComponent(playUrl)}`;
+        }
       }
 
       player.addEventListener('error', (event) => {
         console.error('Shaka error:', event.detail);
         const code = event.detail?.code;
-        const severity = event.detail?.severity;
         let msg = `Error memutar stream (kode: ${code})`;
         if (code === 6007) msg = '🔒 Konten terenkripsi DRM — kunci tidak valid atau kedaluwarsa.';
         else if (code === 4015) msg = '⚠️ Format stream tidak didukung browser ini. Coba gunakan Google Chrome terbaru dan pastikan stream tidak memerlukan codec H.265/HEVC.';
@@ -123,16 +144,6 @@ const Player = ({ source, title }) => {
       });
 
       player.addEventListener('buffering', (e) => setIsLoading(e.buffering));
-
-      let playUrl = url;
-      const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
-      if (playUrl.startsWith('http') && !playUrl.includes('localhost') && !playUrl.includes(proxy)) {
-        if (proxy.includes('localhost') || proxy.includes('127.0.0.1')) {
-          playUrl = `${proxy}/${playUrl}`;
-        } else {
-          playUrl = `${proxy}?url=${encodeURIComponent(playUrl)}`;
-        }
-      }
 
       await player.load(playUrl);
       setIsLoading(false);

@@ -1,0 +1,6 @@
+name = "iptv-proxy"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# Worker berjalan di seluruh edge Cloudflare secara global
+# Gratis: 100.000 request/hari, 10ms CPU per request
