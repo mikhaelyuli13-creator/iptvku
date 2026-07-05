@@ -1,0 +1,12 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/proxy/:path*",
+      "destination": "/api/proxy"
+    },
+    {
+      "source": "/api/proxy-korea/:path*",
+      "destination": "/api/proxy-korea"
+    }
+  ]
+}

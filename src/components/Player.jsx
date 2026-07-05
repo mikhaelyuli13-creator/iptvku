@@ -85,7 +85,17 @@ const Player = ({ source, title }) => {
         drm: drmConfig,
       });
 
-      const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
+      let defaultProxy = '/proxy';
+      if (typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        if (hostname.includes('vercel.app') || hostname.includes('vercel') || hostname.includes('project-iptv')) {
+          defaultProxy = '/api/proxy';
+        } else if (hostname.includes('netlify.app')) {
+          defaultProxy = '/.netlify/functions/proxy';
+        }
+      }
+
+      const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? defaultProxy : 'http://localhost:8080');
       // Hilangkan trailing slash dari proxy jika ada
       const cleanProxy = proxy.replace(/\/$/, '');
 
@@ -118,16 +128,22 @@ const Player = ({ source, title }) => {
       if (isKorea) {
         if (cleanProxy.includes('/functions/proxy')) {
           activeProxy = cleanProxy.replace('/functions/proxy', '/functions/proxy-korea');
+        } else if (cleanProxy.includes('/api/proxy')) {
+          activeProxy = cleanProxy.replace('/api/proxy', '/api/proxy-korea');
         } else if (!cleanProxy.includes('localhost') && !cleanProxy.includes('127.0.0.1')) {
-          // Jika menggunakan Cloudflare Worker di produksi, alihkan khusus Korea ke Netlify proxy-korea
-          activeProxy = 'https://iptvku.netlify.app/.netlify/functions/proxy-korea';
+          // Fallback dinamis berdasarkan host saat ini
+          const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://iptvku.netlify.app';
+          const isVercel = currentOrigin.includes('vercel') || (typeof window !== 'undefined' && window.location.hostname !== 'iptvku.netlify.app');
+          activeProxy = isVercel ? `${currentOrigin}/api/proxy-korea` : 'https://iptvku.netlify.app/.netlify/functions/proxy-korea';
         }
       } else if (shouldOverrideToNetlify) {
-        // Alihkan target bermasalah ke Netlify Proxy agar lancar (mengabaikan error sertifikat SSL & bypass Cloudflare rate-limits)
+        // Alihkan target bermasalah ke Vercel/Netlify Proxy agar sertifikat SSL diabaikan
         if (cleanProxy.includes('localhost') || cleanProxy.includes('127.0.0.1')) {
           activeProxy = cleanProxy;
         } else {
-          activeProxy = 'https://iptvku.netlify.app/.netlify/functions/proxy';
+          const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://iptvku.netlify.app';
+          const isVercel = currentOrigin.includes('vercel') || (typeof window !== 'undefined' && window.location.hostname !== 'iptvku.netlify.app');
+          activeProxy = isVercel ? `${currentOrigin}/api/proxy` : 'https://iptvku.netlify.app/.netlify/functions/proxy';
         }
       }
 
