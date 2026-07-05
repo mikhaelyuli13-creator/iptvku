@@ -89,6 +89,21 @@ const Player = ({ source, title }) => {
       // Hilangkan trailing slash dari proxy jika ada
       const cleanProxy = proxy.replace(/\/$/, '');
 
+      // Deteksi jika channel adalah konten Korea
+      const isKorea = source?.category?.toLowerCase().includes('korea') || 
+                      source?.name?.toLowerCase().includes('korea') || 
+                      source?.country === 'KR';
+
+      let activeProxy = cleanProxy;
+      if (isKorea) {
+        if (cleanProxy.includes('/functions/proxy')) {
+          activeProxy = cleanProxy.replace('/functions/proxy', '/functions/proxy-korea');
+        } else if (!cleanProxy.includes('localhost') && !cleanProxy.includes('127.0.0.1')) {
+          // Jika menggunakan Cloudflare Worker di produksi, alihkan khusus Korea ke Netlify proxy-korea
+          activeProxy = 'https://iptvku.netlify.app/.netlify/functions/proxy-korea';
+        }
+      }
+
       // ---- Request filter: Proxy SEMUA request Shaka (manifest + segmen) ----
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         const originalUrl = request.uris[0];
@@ -102,14 +117,14 @@ const Player = ({ source, title }) => {
         if (originalUrl.startsWith('http') &&
             !originalUrl.includes('localhost') &&
             !originalUrl.includes('127.0.0.1') &&
-            !originalUrl.includes(cleanProxy)) {
-          request.uris = [`${cleanProxy}/${originalUrl}`];
+            !originalUrl.includes(activeProxy)) {
+          request.uris = [`${activeProxy}/${originalUrl}`];
         }
       });
 
       let playUrl = url;
-      if (playUrl.startsWith('http') && !playUrl.includes('localhost') && !playUrl.includes(cleanProxy)) {
-        playUrl = `${cleanProxy}/${playUrl}`;
+      if (playUrl.startsWith('http') && !playUrl.includes('localhost') && !playUrl.includes(activeProxy)) {
+        playUrl = `${activeProxy}/${playUrl}`;
       }
 
       player.addEventListener('error', (event) => {
