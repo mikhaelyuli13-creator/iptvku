@@ -111,11 +111,13 @@ const Player = ({ source, title }) => {
         const severity = event.detail?.severity;
         let msg = `Error memutar stream (kode: ${code})`;
         if (code === 6007) msg = '🔒 Konten terenkripsi DRM — kunci tidak valid atau kedaluwarsa.';
+        else if (code === 4015) msg = '⚠️ Format stream tidak didukung browser ini. Coba gunakan Google Chrome terbaru dan pastikan stream tidak memerlukan codec H.265/HEVC.';
         else if (code === 3016) msg = '⚠️ Format stream tidak didukung browser ini.';
+        else if (code === 4012) msg = '🚫 Stream memerlukan autentikasi (401/403). URL mungkin sudah kedaluwarsa.';
+        else if (code === 4014) msg = '🔒 Konten memerlukan DRM (Widevine/PlayReady). Gunakan Google Chrome untuk menontonnya.';
         else if (code === 1001) msg = '🌐 Tidak bisa mengambil stream. Domain tidak ditemukan — pastikan URL benar.';
         else if (code === 1002) msg = '🌐 Gagal mengambil stream. Periksa koneksi atau CORS server.';
         else if (code === 1003) msg = '⏱️ Request timeout — server terlalu lama merespons.';
-        else if (code === 4012) msg = '🚫 Stream memerlukan autentikasi (401/403).';
         setError(msg);
         setIsLoading(false);
       });
