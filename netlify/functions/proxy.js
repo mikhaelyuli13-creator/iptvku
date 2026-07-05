@@ -1,12 +1,30 @@
 // netlify/functions/proxy.js
+import https from 'https';
+import http from 'http';
+import { ProxyAgent } from 'proxy-agent';
+
+const FORWARD_PROXY = process.env.FORWARD_PROXY_URL || 'http://hkuvwqvj:t5hsr3e3fjw2@142.111.67.146:5611';
+const agent = new ProxyAgent({
+  getProxyForUrl: () => FORWARD_PROXY
+});
+
 export const handler = async (event) => {
   // Ambil URL target dari query parameter 'url'
   let targetUrlString = event.queryStringParameters.url;
 
   if (!targetUrlString) {
+    // Coba ambil dari path (path-based routing)
+    // event.path biasanya bernilai "/.netlify/functions/proxy/https://domain.com/path"
+    const prefix = '/.netlify/functions/proxy/';
+    if (event.path && event.path.startsWith(prefix)) {
+      targetUrlString = event.path.slice(prefix.length);
+    }
+  }
+
+  if (!targetUrlString) {
     return {
       statusCode: 400,
-      body: 'Missing target URL. Format: /proxy/https://...',
+      body: 'Missing target URL. Format: /proxy/https://... or ?url=https://...',
     };
   }
 
@@ -26,71 +44,148 @@ export const handler = async (event) => {
 
   try {
     const targetUrl = new URL(targetUrlString);
-    const headers = { ...event.headers };
+    const clientHeaders = {};
 
-    // Hapus header host bawaan agar tidak mengganggu server target
-    delete headers.host;
-    delete headers.connection;
+    // Daftar header hop-by-hop dan internal Netlify yang harus dibersihkan
+    const skipHeaders = [
+      'host',
+      'connection',
+      'keep-alive',
+      'proxy-authenticate',
+      'proxy-authorization',
+      'te',
+      'trailers',
+      'transfer-encoding',
+      'upgrade',
+      'content-length',
+      'x-nf-client-connection-ip',
+      'x-nf-request-id'
+    ];
 
-    // --- INJEKSI CUSTOM HEADERS (Bypass Referer & User-Agent) ---
+    // Salin header dari client ke target headers
+    for (const [key, value] of Object.entries(event.headers)) {
+      const lowerKey = key.toLowerCase();
+      if (!skipHeaders.includes(lowerKey)) {
+        clientHeaders[key] = value;
+      }
+    }
+
+    // --- INJEKSI REFERER & USER-AGENT ---
     const proxyReferer = event.headers['x-proxy-referer'];
     const proxyUserAgent = event.headers['x-proxy-user-agent'];
 
     if (proxyReferer) {
-      headers['Referer'] = proxyReferer;
-    } else if (targetUrlString.includes('visionplus.id')) {
-      headers['Referer'] = 'https://www.visionplus.id/';
-    } else if (targetUrlString.includes('transvision.co.id')) {
-      headers['Referer'] = 'https://www.transvision.co.id/';
-    } else if (targetUrlString.includes('indihometv.com')) {
-      headers['Referer'] = 'https://www.indihometv.com/';
+      clientHeaders['Referer'] = proxyReferer;
     } else {
-      headers['Referer'] = targetUrl.origin + '/';
+      const lowerTarget = targetUrlString.toLowerCase();
+      if (
+        lowerTarget.includes('visionplus.id') ||
+        lowerTarget.includes('rctiplus.com') ||
+        lowerTarget.includes('cloudfront.net') ||
+        lowerTarget.includes('/out/v1/')
+      ) {
+        clientHeaders['Referer'] = 'https://www.visionplus.id/';
+      } else if (lowerTarget.includes('transvision.co.id') || lowerTarget.includes('transvision')) {
+        clientHeaders['Referer'] = 'https://www.transvision.co.id/';
+      } else if (lowerTarget.includes('indihometv.com') || lowerTarget.includes('indihometv')) {
+        clientHeaders['Referer'] = 'https://www.indihometv.com/';
+      } else if (lowerTarget.includes('cnnindonesia.com')) {
+        clientHeaders['Referer'] = 'https://www.cnnindonesia.com/';
+      } else if (lowerTarget.includes('cnbcindonesia.com')) {
+        clientHeaders['Referer'] = 'https://www.cnbcindonesia.com/';
+      } else if (lowerTarget.includes('detik.com')) {
+        clientHeaders['Referer'] = 'https://www.detik.com/';
+      } else if (lowerTarget.includes('dens.tv')) {
+        clientHeaders['Referer'] = 'http://www.dens.tv/';
+      } else if (lowerTarget.includes('vidio.com')) {
+        clientHeaders['Referer'] = 'https://www.vidio.com/';
+      } else {
+        clientHeaders['Referer'] = targetUrl.origin + '/';
+      }
     }
 
     if (proxyUserAgent) {
-      headers['User-Agent'] = proxyUserAgent;
+      clientHeaders['User-Agent'] = proxyUserAgent;
     } else {
-      headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36';
+      clientHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
     }
 
-    // Bersihkan custom headers kita agar tidak terkirim ke server tujuan
-    delete headers['x-proxy-referer'];
-    delete headers['x-proxy-user-agent'];
+    // Bersihkan custom header internal kita
+    delete clientHeaders['x-proxy-referer'];
+    delete clientHeaders['x-proxy-user-agent'];
 
-    const response = await fetch(targetUrl.href, {
-      method: event.httpMethod,
-      headers: headers,
-      body: event.httpMethod !== 'GET' && event.httpMethod !== 'HEAD' ? event.body : undefined,
+    // Lakukan request menggunakan ProxyAgent dan native http/https request
+    const responseData = await new Promise((resolve, reject) => {
+      const isHttps = targetUrl.protocol === 'https:';
+      const requestLib = isHttps ? https : http;
+
+      const reqOptions = {
+        method: event.httpMethod,
+        headers: clientHeaders,
+        agent: agent,
+        timeout: 10000
+      };
+
+      const req = requestLib.request(targetUrl.href, reqOptions, (res) => {
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          resolve({
+            statusCode: res.statusCode,
+            headers: res.headers,
+            body: Buffer.concat(chunks)
+          });
+        });
+      });
+
+      req.on('error', (err) => reject(err));
+      req.on('timeout', () => {
+        req.destroy();
+        reject(new Error('Gateway Timeout (10s)'));
+      });
+
+      if (event.body) {
+        req.write(event.isBase64Encoded ? Buffer.from(event.body, 'base64') : event.body);
+      }
+      req.end();
     });
 
     const responseHeaders = {};
-    response.headers.forEach((value, key) => {
-      // Hapus CORS header bawaan agar tidak bentrok
-      if (!key.toLowerCase().startsWith('access-control-')) {
+    for (const [key, value] of Object.entries(responseData.headers)) {
+      const lowerKey = key.toLowerCase();
+      // Hapus header CORS bawaan dan Content-Encoding (biarkan Netlify yang menangani kompresi)
+      if (!lowerKey.startsWith('access-control-') && lowerKey !== 'content-encoding') {
         responseHeaders[key] = value;
       }
-    });
+    }
 
-    // Pastikan CORS selalu diaktifkan
+    // Set CORS headers
     responseHeaders['Access-Control-Allow-Origin'] = '*';
     responseHeaders['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, PUT, DELETE';
     responseHeaders['Access-Control-Allow-Headers'] = '*';
 
-    // Baca response data
-    const buffer = await response.arrayBuffer();
-    const isText = (responseHeaders['content-type'] || '').includes('text') || (responseHeaders['content-type'] || '').includes('json') || (responseHeaders['content-type'] || '').includes('xml') || (responseHeaders['content-type'] || '').includes('javascript');
-    
+    const contentType = responseHeaders['content-type'] || '';
+    const isText = contentType.includes('text') || 
+                   contentType.includes('json') || 
+                   contentType.includes('xml') || 
+                   contentType.includes('javascript') ||
+                   contentType.includes('mpegurl'); // m3u8 playlist
+
     return {
-      statusCode: response.status,
+      statusCode: responseData.statusCode,
       headers: responseHeaders,
-      body: Buffer.from(buffer).toString(isText ? 'utf8' : 'base64'),
-      isBase64Encoded: !isText,
+      body: responseData.body.toString(isText ? 'utf8' : 'base64'),
+      isBase64Encoded: !isText
     };
+
   } catch (error) {
     return {
       statusCode: 502,
       body: 'Proxy Error: ' + error.message,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'text/plain'
+      }
     };
   }
 };
