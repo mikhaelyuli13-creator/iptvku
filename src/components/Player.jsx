@@ -69,11 +69,11 @@ const Player = ({ source, title }) => {
         drmConfig.servers = {
           'com.widevine.alpha': drmInfo.licenseServer,
         };
-        // Tambahkan robustness level untuk menghindari warning Shaka
+        // Set ke empty string untuk menghindari console warning tanpa memicu config error
         drmConfig.advanced = {
           'com.widevine.alpha': {
-            videoRobustness: 'SW_SECURE_CRYPTO',
-            audioRobustness: 'SW_SECURE_CRYPTO',
+            videoRobustness: '',
+            audioRobustness: '',
           },
         };
       }
@@ -93,7 +93,8 @@ const Player = ({ source, title }) => {
       });
 
       const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
-      const isLocalProxy = proxy.includes('localhost') || proxy.includes('127.0.0.1');
+      // Hilangkan trailing slash dari proxy jika ada
+      const cleanProxy = proxy.replace(/\/$/, '');
 
       // ---- Request filter: Proxy SEMUA request Shaka (manifest + segmen) ----
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
@@ -108,22 +109,14 @@ const Player = ({ source, title }) => {
         if (originalUrl.startsWith('http') &&
             !originalUrl.includes('localhost') &&
             !originalUrl.includes('127.0.0.1') &&
-            !originalUrl.includes(proxy)) {
-          if (isLocalProxy) {
-            request.uris = [`${proxy}/${originalUrl}`];
-          } else {
-            request.uris = [`${proxy}?url=${encodeURIComponent(originalUrl)}`];
-          }
+            !originalUrl.includes(cleanProxy)) {
+          request.uris = [`${cleanProxy}/${originalUrl}`];
         }
       });
 
       let playUrl = url;
-      if (playUrl.startsWith('http') && !playUrl.includes('localhost') && !playUrl.includes(proxy)) {
-        if (isLocalProxy) {
-          playUrl = `${proxy}/${playUrl}`;
-        } else {
-          playUrl = `${proxy}?url=${encodeURIComponent(playUrl)}`;
-        }
+      if (playUrl.startsWith('http') && !playUrl.includes('localhost') && !playUrl.includes(cleanProxy)) {
+        playUrl = `${cleanProxy}/${playUrl}`;
       }
 
       player.addEventListener('error', (event) => {

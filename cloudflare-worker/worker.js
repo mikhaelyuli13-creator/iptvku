@@ -20,7 +20,24 @@ export default {
     let targetUrlString = url.searchParams.get('url');
 
     if (!targetUrlString) {
-      return new Response('Missing ?url= parameter. Usage: /?url=https://...', {
+      // Coba ambil dari pathname (path-based routing fallback)
+      let path = url.pathname.slice(1); // hilangkan leading slash
+      
+      // Netlify atau browser mungkin memotong double slash menjadi single slash
+      if (path.startsWith('http:/') && !path.startsWith('http://')) {
+        path = path.replace('http:/', 'http://');
+      } else if (path.startsWith('https:/') && !path.startsWith('https://')) {
+        path = path.replace('https:/', 'https://');
+      }
+      
+      if (path.startsWith('http://') || path.startsWith('https://')) {
+        // Gabungkan kembali query parameter asli jika ada
+        targetUrlString = path + url.search;
+      }
+    }
+
+    if (!targetUrlString) {
+      return new Response('Missing target URL. Usage: /?url=https://... or /https://...', {
         status: 400,
         headers: corsHeaders(),
       });
