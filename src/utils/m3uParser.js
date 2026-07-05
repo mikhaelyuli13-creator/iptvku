@@ -167,11 +167,55 @@ export function parseM3UText(text) {
 
 export async function fetchAndParseM3U(url) {
   let fetchUrl = url;
-  const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
-  if (url.startsWith('http') && !url.includes('localhost') && !url.includes(proxy)) {
-    const cleanProxy = proxy.replace(/\/$/, '');
-    fetchUrl = `${cleanProxy}/${url}`;
+  
+  let defaultProxy = '/proxy';
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    if (hostname.includes('vercel.app') || hostname.includes('vercel') || hostname.includes('project-iptv')) {
+      defaultProxy = '/api/proxy';
+    } else if (hostname.includes('netlify.app')) {
+      defaultProxy = '/.netlify/functions/proxy';
+    }
   }
+
+  const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? defaultProxy : 'http://localhost:8080');
+  const cleanProxy = proxy.replace(/\/$/, '');
+
+  // Daftar domain yang bermasalah jika di-proxy lewat Cloudflare (karena SSL 525/526, rate limit 429, atau blokir IP Cloudflare)
+  const netlifyOverrideDomains = [
+    'workers.dev',
+    'indihometv.com',
+    'streamlock.net',
+    'jejumbc.com',
+    'tvchosun.com',
+    'chmbc.co.kr',
+    'tjmbc.co.kr',
+    'akamaized.net',
+    'nowcdn.co.kr',
+    'webcast.go.kr',
+    'iscs.co.kr',
+    'ctnd.com',
+    'ktv.go.kr',
+    'obs.co.kr'
+  ];
+
+  const shouldOverrideToNetlify = netlifyOverrideDomains.some(domain => url.includes(domain)) && !url.includes(cleanProxy);
+
+  let activeProxy = cleanProxy;
+  if (shouldOverrideToNetlify) {
+    if (cleanProxy.includes('localhost') || cleanProxy.includes('127.0.0.1')) {
+      activeProxy = cleanProxy;
+    } else {
+      const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://iptvku.netlify.app';
+      const isVercel = currentOrigin.includes('vercel') || (typeof window !== 'undefined' && window.location.hostname !== 'iptvku.netlify.app');
+      activeProxy = isVercel ? `${currentOrigin}/api/proxy` : 'https://iptvku.netlify.app/.netlify/functions/proxy';
+    }
+  }
+
+  if (url.startsWith('http') && !url.includes('localhost') && !url.includes(activeProxy)) {
+    fetchUrl = `${activeProxy}/${url}`;
+  }
+
   const resp = await fetch(fetchUrl);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
   const text = await resp.text();
