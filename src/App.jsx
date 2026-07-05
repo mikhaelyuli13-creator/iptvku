@@ -110,14 +110,21 @@ export default function App() {
   };
 
   // Filtered data
+  const activeChannels = useMemo(() => {
+    return channels.filter(ch => {
+      if (typeof ch.id === 'number' && ch.id <= 10) return true;
+      return ch.headers?.active === true;
+    });
+  }, [channels]);
+
   const filteredChannels = useMemo(() => {
-    if (!searchQuery) return channels;
+    if (!searchQuery) return activeChannels;
     const q = searchQuery.toLowerCase();
-    return channels.filter(ch =>
+    return activeChannels.filter(ch =>
       ch.name?.toLowerCase().includes(q) ||
       ch.category?.toLowerCase().includes(q)
     );
-  }, [channels, searchQuery]);
+  }, [activeChannels, searchQuery]);
 
   const filteredMovies = useMemo(() => {
     if (!searchQuery) return movies;
@@ -235,7 +242,7 @@ export default function App() {
               <button id="btn-see-all-live" className="see-all-btn" onClick={() => setCurrentView('live')}>Lihat Semua →</button>
             </div>
             <div className="channel-grid" style={{ marginBottom: 'var(--space-3xl)' }}>
-              {channels.slice(0, 6).map(channel => (
+              {activeChannels.slice(0, 6).map(channel => (
                 <div
                   key={channel.id}
                   id={`home-channel-${channel.id}`}

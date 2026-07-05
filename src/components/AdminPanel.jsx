@@ -298,6 +298,8 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
   const [playlistInput, setPlaylistInput] = useState('');
   const [playlistLoading, setPlaylistLoading] = useState(false);
   const [playlistPreview, setPlaylistPreview] = useState(null);
+  const [selectedChannels, setSelectedChannels] = useState([]);
+  const [selectedMovies, setSelectedMovies] = useState([]);
   
   // --- Checker State ---
   const [channelStatus, setChannelStatus] = useState({});
@@ -469,11 +471,8 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
           let url = ch.url;
           const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
           if (url.startsWith('http') && !url.includes('localhost') && !url.includes(proxy)) {
-            if (proxy.includes('localhost') || proxy.includes('127.0.0.1')) {
-              url = `${proxy}/${url}`;
-            } else {
-              url = `${proxy}?url=${encodeURIComponent(url)}`;
-            }
+            const cleanProxy = proxy.replace(/\/$/, '');
+            url = `${cleanProxy}/${url}`;
           }
           const hdrs = {};
           if (ch.headers?.referer) hdrs['X-Proxy-Referer'] = ch.headers.referer;
@@ -491,15 +490,86 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
           });
           
           clearTimeout(timeoutId);
-          statuses[ch.id] = (res.ok || res.status === 206) ? 'online' : 'offline';
+          const isOnline = res.ok || res.status === 206;
+          statuses[ch.id] = isOnline ? 'online' : 'offline';
+
+          // Update active status ke database Supabase
+          const newHeaders = { ...ch.headers, active: isOnline };
+          await supabase.from('channels').update({ headers: newHeaders }).eq('id', ch.id.toString());
         } catch {
           statuses[ch.id] = 'offline';
+          const newHeaders = { ...ch.headers, active: false };
+          await supabase.from('channels').update({ headers: newHeaders }).eq('id', ch.id.toString());
         }
         setChannelStatus(prev => ({ ...prev, [ch.id]: statuses[ch.id] }));
       }));
     }
+
+    // Update local state di akhir
+    const updatedChannels = channels.map(c => {
+      if (statuses[c.id]) {
+        const isOnline = statuses[c.id] === 'online';
+        return { ...c, headers: { ...c.headers, active: isOnline } };
+      }
+      return c;
+    });
+    onUpdateChannels(updatedChannels);
+
     setIsChecking(false);
-    showToast('Pengecekan status selesai.');
+    showToast('Pengecekan status selesai. Status publish pelanggan otomatis disesuaikan!');
+  };
+
+  const handleToggleChannelActive = async (ch) => {
+    const currentActive = ch.headers?.active === true;
+    const newHeaders = { ...ch.headers, active: !currentActive };
+    try {
+      const { error } = await supabase.from('channels').update({ headers: newHeaders }).eq('id', ch.id.toString());
+      if (error) throw error;
+      onUpdateChannels(channels.map(c => c.id === ch.id ? { ...c, headers: newHeaders } : c));
+      showToast(`Channel "${ch.name}" ${!currentActive ? 'diaktifkan (terbit ke pelanggan)' : 'dinonaktifkan (draft)'}.`);
+    } catch (err) {
+      showToast(`Gagal mengubah status: ${err.message}`, 'error');
+    }
+  };
+
+  const handleDeleteSelectedChannels = () => {
+    if (selectedChannels.length === 0) return;
+    setConfirm({
+      message: `Hapus ${selectedChannels.length} channel terpilih? Tindakan ini tidak bisa dibatalkan.`,
+      onConfirm: async () => {
+        try {
+          const stringIds = selectedChannels.map(id => id.toString());
+          const { error } = await supabase.from('channels').delete().in('id', stringIds);
+          if (error) throw error;
+          onUpdateChannels(channels.filter(c => !selectedChannels.includes(c.id)));
+          setSelectedChannels([]);
+          showToast(`${selectedChannels.length} channel terpilih berhasil dihapus.`);
+        } catch (err) {
+          showToast(`Gagal menghapus: ${err.message}`, 'error');
+        }
+        setConfirm(null);
+      }
+    });
+  };
+
+  const handleDeleteSelectedMovies = () => {
+    if (selectedMovies.length === 0) return;
+    setConfirm({
+      message: `Hapus ${selectedMovies.length} film terpilih? Tindakan ini tidak bisa dibatalkan.`,
+      onConfirm: async () => {
+        try {
+          const stringIds = selectedMovies.map(id => id.toString());
+          const { error } = await supabase.from('movies').delete().in('id', stringIds);
+          if (error) throw error;
+          onUpdateMovies(movies.filter(m => !selectedMovies.includes(m.id)));
+          setSelectedMovies([]);
+          showToast(`${selectedMovies.length} film terpilih berhasil dihapus.`);
+        } catch (err) {
+          showToast(`Gagal menghapus: ${err.message}`, 'error');
+        }
+        setConfirm(null);
+      }
+    });
   };
 
   const handleCleanDeadChannels = () => {
@@ -645,9 +715,14 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-xl)' }}>
               <div>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 900 }}>Kelola Channel</h1>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: 4 }}>{channels.length} channel tersedia</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: 4 }}>{channels.length} channel tersedia ({selectedChannels.length} terpilih)</p>
               </div>
               <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                {selectedChannels.length > 0 && (
+                  <button className="btn-secondary" style={{ color: '#ff7070', borderColor: 'rgba(255,80,80,0.4)', background: 'rgba(255,80,80,0.15)' }} onClick={handleDeleteSelectedChannels}>
+                    <Trash2 size={16} /> Hapus Terpilih ({selectedChannels.length})
+                  </button>
+                )}
                 {Object.values(channelStatus).includes('offline') && (
                   <button className="btn-secondary" style={{ color: '#ff7070', borderColor: 'rgba(255,80,80,0.3)', background: 'rgba(255,80,80,0.1)' }} onClick={handleCleanDeadChannels}>
                     <Trash2 size={16} /> Hapus yang Mati
@@ -655,7 +730,7 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
                 )}
                 <button className="btn-secondary" onClick={handleCheckChannels} disabled={isChecking}>
                   {isChecking ? <div className="spinner" style={{ width: 14, height: 14 }} /> : <RefreshCw size={16} />}
-                  Cek Status
+                  Cek Status & Auto-Publish
                 </button>
                 {!channelFormMode && (
                   <button id="btn-add-channel" className="btn-primary" onClick={() => { setChannelFormMode('add'); setEditingChannel(null); }}>
@@ -684,20 +759,48 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--bg-glass-border)', background: 'var(--bg-glass)' }}>
-                     {['Status', 'Logo', 'Nama Channel', 'Kategori', 'Tipe', 'DRM', 'URL Stream', 'Aksi'].map(h => (
+                    <th style={{ padding: '12px 16px', width: 40, textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={channels.length > 0 && selectedChannels.length === channels.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedChannels(channels.map(c => c.id));
+                          } else {
+                            setSelectedChannels([]);
+                          }
+                        }}
+                        style={{ accentColor: 'var(--accent-primary)', width: 15, height: 15, cursor: 'pointer' }}
+                      />
+                    </th>
+                    {['Status', 'Pelanggan', 'Logo', 'Nama Channel', 'Kategori', 'Tipe', 'DRM', 'URL Stream', 'Aksi'].map(h => (
                       <th key={h} style={{ padding: '12px 16px', textAlign: 'left', fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {channels.length === 0 ? (
-                    <tr><td colSpan={7} style={{ padding: 'var(--space-2xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada channel. Tambahkan channel atau import playlist M3U.</td></tr>
+                    <tr><td colSpan={9} style={{ padding: 'var(--space-2xl)', textAlign: 'center', color: 'var(--text-muted)' }}>Belum ada channel. Tambahkan channel atau import playlist M3U.</td></tr>
                   ) : (
                     channels.map((ch, i) => (
                       <tr key={ch.id} style={{ borderBottom: '1px solid var(--bg-glass-border)', transition: 'background var(--transition-fast)' }}
                         onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-glass)'}
                         onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
+                        <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedChannels.includes(ch.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedChannels(prev => [...prev, ch.id]);
+                              } else {
+                                setSelectedChannels(prev => prev.filter(id => id !== ch.id));
+                              }
+                            }}
+                            style={{ accentColor: 'var(--accent-primary)', width: 15, height: 15, cursor: 'pointer' }}
+                          />
+                        </td>
                         <td style={{ padding: '10px 16px', textAlign: 'center' }}>
                           {channelStatus[ch.id] === 'loading' ? (
                             <div className="spinner" style={{ width: 12, height: 12, margin: '0 auto' }} />
@@ -708,6 +811,28 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
                           ) : (
                             <div style={{ width: 10, height: 10, borderRadius: '50%', background: 'var(--text-muted)', margin: '0 auto', opacity: 0.3 }} title="Belum di-cek" />
                           )}
+                        </td>
+                        <td style={{ padding: '10px 16px' }}>
+                          <button
+                            onClick={() => handleToggleChannelActive(ch)}
+                            style={{
+                              background: ch.headers?.active === true ? 'rgba(0,229,160,0.12)' : 'rgba(255,255,255,0.05)',
+                              border: `1px solid ${ch.headers?.active === true ? 'rgba(0,229,160,0.35)' : 'rgba(255,255,255,0.15)'}`,
+                              color: ch.headers?.active === true ? 'var(--accent-green)' : 'var(--text-muted)',
+                              borderRadius: 20,
+                              padding: '4px 10px',
+                              fontSize: '0.72rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              transition: 'all var(--transition-fast)'
+                            }}
+                            title={ch.headers?.active === true ? "Terlihat oleh pelanggan. Klik untuk sembunyikan." : "Disembunyikan dari pelanggan. Klik untuk aktifkan."}
+                          >
+                            {ch.headers?.active === true ? 'Aktif' : 'Draft'}
+                          </button>
                         </td>
                         <td style={{ padding: '10px 16px' }}>
                           <div style={{ width: 36, height: 36, background: 'var(--bg-glass)', borderRadius: 6, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent-primary)' }}>
@@ -737,11 +862,11 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
                           <div style={{ display: 'flex', gap: 6 }}>
                             <button id={`btn-edit-channel-${ch.id}`} title="Edit" onClick={() => { setEditingChannel(ch); setChannelFormMode('edit'); }}
                               style={{ background: 'rgba(108,99,255,0.1)', border: '1px solid rgba(108,99,255,0.3)', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', color: 'var(--accent-primary)', display: 'flex' }}>
-                              <Pencil size={13} />
+                                <Pencil size={13} />
                             </button>
                             <button id={`btn-delete-channel-${ch.id}`} title="Hapus" onClick={() => handleDeleteChannel(ch.id)}
                               style={{ background: 'rgba(255,80,80,0.1)', border: '1px solid rgba(255,80,80,0.3)', borderRadius: 6, padding: '6px 8px', cursor: 'pointer', color: '#ff7070', display: 'flex' }}>
-                              <Trash2 size={13} />
+                                <Trash2 size={13} />
                             </button>
                           </div>
                         </td>
@@ -760,13 +885,39 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-xl)' }}>
               <div>
                 <h1 style={{ fontSize: '1.5rem', fontWeight: 900 }}>Kelola Film & VOD</h1>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: 4 }}>{movies.length} film tersedia</p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 4 }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{movies.length} film tersedia ({selectedMovies.length} terpilih)</span>
+                  {movies.length > 0 && (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.8rem', color: 'var(--text-muted)', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={movies.length > 0 && selectedMovies.length === movies.length}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedMovies(movies.map(m => m.id));
+                          } else {
+                            setSelectedMovies([]);
+                          }
+                        }}
+                        style={{ accentColor: 'var(--accent-secondary)', width: 14, height: 14, cursor: 'pointer' }}
+                      />
+                      Pilih Semua
+                    </label>
+                  )}
+                </div>
               </div>
-              {!movieFormMode && (
-                <button id="btn-add-movie" className="btn-primary" onClick={() => { setMovieFormMode('add'); setEditingMovie(null); }}>
-                  <Plus size={16} /> Tambah Film
-                </button>
-              )}
+              <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                {selectedMovies.length > 0 && (
+                  <button className="btn-secondary" style={{ color: '#ff7070', borderColor: 'rgba(255,80,80,0.4)', background: 'rgba(255,80,80,0.15)' }} onClick={handleDeleteSelectedMovies}>
+                    <Trash2 size={16} /> Hapus Terpilih ({selectedMovies.length})
+                  </button>
+                )}
+                {!movieFormMode && (
+                  <button id="btn-add-movie" className="btn-primary" onClick={() => { setMovieFormMode('add'); setEditingMovie(null); }}>
+                    <Plus size={16} /> Tambah Film
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Movie Form */}
@@ -791,16 +942,28 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
                 </div>
               ) : (
                 movies.map(mv => (
-                  <div key={mv.id} style={{ ...card({ padding: 'var(--space-md)' }), display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-start', transition: 'all var(--transition-normal)' }}
+                  <div key={mv.id} style={{ ...card({ padding: 'var(--space-md)' }), display: 'flex', gap: 'var(--space-md)', alignItems: 'flex-start', transition: 'all var(--transition-normal)', position: 'relative' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,107,157,0.4)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--bg-glass-border)'; e.currentTarget.style.transform = 'none'; }}
                   >
+                    <input
+                      type="checkbox"
+                      checked={selectedMovies.includes(mv.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedMovies(prev => [...prev, mv.id]);
+                        } else {
+                          setSelectedMovies(prev => prev.filter(id => id !== mv.id));
+                        }
+                      }}
+                      style={{ accentColor: 'var(--accent-secondary)', width: 15, height: 15, cursor: 'pointer', marginTop: 4, marginRight: 2, flexShrink: 0 }}
+                    />
                     <div style={{ width: 56, height: 80, borderRadius: 6, overflow: 'hidden', flexShrink: 0, background: 'var(--bg-glass)' }}>
                       {mv.poster && <img src={mv.poster} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="" />}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 6 }}>
-                        <span style={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.3 }}>{mv.title}</span>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }} title={mv.title}>{mv.title}</span>
                         {mv.featured && <span style={{ fontSize: '0.58rem', background: 'rgba(108,99,255,0.2)', border: '1px solid rgba(108,99,255,0.3)', borderRadius: 3, padding: '2px 5px', color: 'var(--accent-primary)', fontWeight: 700, flexShrink: 0 }}>HERO</span>}
                       </div>
                       <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, marginBottom: 8 }}>
