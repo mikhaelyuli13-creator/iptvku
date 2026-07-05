@@ -102,6 +102,11 @@ const Player = ({ source, title }) => {
           // Jika menggunakan Cloudflare Worker di produksi, alihkan khusus Korea ke Netlify proxy-korea
           activeProxy = 'https://iptvku.netlify.app/.netlify/functions/proxy-korea';
         }
+      } else if (url.includes('workers.dev') && !url.includes(cleanProxy)) {
+        // Alihkan target workers.dev lain ke Netlify Proxy untuk menghindari Cloudflare-to-Cloudflare rate-limit (429)
+        if (cleanProxy.includes('workers.dev')) {
+          activeProxy = 'https://iptvku.netlify.app/.netlify/functions/proxy';
+        }
       }
 
       // Simpan manifest URL asli sebagai basis untuk resolusi file segmen relatif

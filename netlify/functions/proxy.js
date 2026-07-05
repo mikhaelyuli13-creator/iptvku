@@ -82,7 +82,9 @@ export const handler = async (event) => {
         lowerTarget.includes('visionplus.id') ||
         lowerTarget.includes('rctiplus.com') ||
         lowerTarget.includes('cloudfront.net') ||
-        lowerTarget.includes('/out/v1/')
+        lowerTarget.includes('/out/v1/') ||
+        lowerTarget.includes('workers.dev') ||
+        lowerTarget.includes('sedotcw3')
       ) {
         clientHeaders['Referer'] = 'https://www.visionplus.id/';
       } else if (lowerTarget.includes('transvision.co.id') || lowerTarget.includes('transvision')) {
