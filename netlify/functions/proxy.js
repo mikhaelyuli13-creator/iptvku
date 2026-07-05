@@ -1,12 +1,26 @@
 // netlify/functions/proxy.js
 export const handler = async (event) => {
   // Ambil URL target dari query parameter 'url'
-  const targetUrlString = event.queryStringParameters.url;
+  let targetUrlString = event.queryStringParameters.url;
 
-  if (!targetUrlString || !targetUrlString.startsWith('http')) {
+  if (!targetUrlString) {
     return {
       statusCode: 400,
-      body: 'Invalid or missing target URL. Format: /proxy/https://...',
+      body: 'Missing target URL. Format: /proxy/https://...',
+    };
+  }
+
+  // Perbaiki jika double slash (//) tereduksi menjadi single slash (/) oleh router Netlify
+  if (targetUrlString.startsWith('http:/') && !targetUrlString.startsWith('http://')) {
+    targetUrlString = targetUrlString.replace('http:/', 'http://');
+  } else if (targetUrlString.startsWith('https:/') && !targetUrlString.startsWith('https://')) {
+    targetUrlString = targetUrlString.replace('https:/', 'https://');
+  }
+
+  if (!targetUrlString.startsWith('http')) {
+    return {
+      statusCode: 400,
+      body: 'Invalid target URL. Format: /proxy/https://...',
     };
   }
 
