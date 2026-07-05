@@ -104,6 +104,9 @@ const Player = ({ source, title }) => {
         }
       }
 
+      // Simpan manifest URL asli sebagai basis untuk resolusi file segmen relatif
+      const targetBaseUrl = url;
+
       // ---- Request filter: Proxy SEMUA request Shaka (manifest + segmen) ----
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         const originalUrl = request.uris[0];
@@ -112,6 +115,25 @@ const Player = ({ source, title }) => {
         // Tambahkan custom headers jika ada
         if (hdrs?.referer) request.headers['X-Proxy-Referer'] = hdrs.referer;
         if (hdrs?.userAgent) request.headers['X-Proxy-User-Agent'] = hdrs.userAgent;
+
+        const proxyUrlObj = new URL(activeProxy);
+        const proxyOrigin = proxyUrlObj.origin;
+
+        // Jika request mengarah ke root proxy karena resolusi browser (kehilangan konteks target)
+        if (originalUrl.startsWith(proxyOrigin)) {
+          const relativePath = originalUrl.slice(proxyOrigin.length);
+          if (!relativePath.startsWith('/http:/') && !relativePath.startsWith('/https:/')) {
+            try {
+              // Hilangkan leading slash agar teresolusi secara relatif terhadap targetBaseUrl
+              const cleanRelPath = relativePath.replace(/^\//, '');
+              const resolvedUrl = new URL(cleanRelPath, targetBaseUrl).href;
+              request.uris = [`${activeProxy}/${resolvedUrl}`];
+            } catch (e) {
+              console.error('Failed to resolve relative url:', e);
+            }
+            return;
+          }
+        }
 
         // Proxy semua request yang belum melalui proxy
         if (originalUrl.startsWith('http') &&
