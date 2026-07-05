@@ -4,6 +4,11 @@
   functions = "netlify/functions"
 
 [[redirects]]
+  from = "/proxy"
+  to = "/.netlify/functions/proxy"
+  status = 200
+
+[[redirects]]
   from = "/proxy/*"
   to = "/.netlify/functions/proxy?url=:splat"
   status = 200

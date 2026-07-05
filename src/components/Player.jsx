@@ -68,7 +68,11 @@ const Player = ({ source, title }) => {
         let licenseUrl = drmInfo.licenseServer;
         const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
         if (licenseUrl.startsWith('http') && !licenseUrl.includes('localhost') && !licenseUrl.includes(proxy)) {
-          licenseUrl = `${proxy}/${licenseUrl}`;
+          if (proxy.includes('localhost') || proxy.includes('127.0.0.1')) {
+            licenseUrl = `${proxy}/${licenseUrl}`;
+          } else {
+            licenseUrl = `${proxy}?url=${encodeURIComponent(licenseUrl)}`;
+          }
         }
         drmConfig.servers = {
           'com.widevine.alpha': licenseUrl,
@@ -121,7 +125,11 @@ const Player = ({ source, title }) => {
       let playUrl = url;
       const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
       if (playUrl.startsWith('http') && !playUrl.includes('localhost') && !playUrl.includes(proxy)) {
-        playUrl = `${proxy}/${playUrl}`;
+        if (proxy.includes('localhost') || proxy.includes('127.0.0.1')) {
+          playUrl = `${proxy}/${playUrl}`;
+        } else {
+          playUrl = `${proxy}?url=${encodeURIComponent(playUrl)}`;
+        }
       }
 
       await player.load(playUrl);

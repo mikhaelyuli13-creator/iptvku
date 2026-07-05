@@ -469,7 +469,11 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
           let url = ch.url;
           const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
           if (url.startsWith('http') && !url.includes('localhost') && !url.includes(proxy)) {
-            url = `${proxy}/${url}`;
+            if (proxy.includes('localhost') || proxy.includes('127.0.0.1')) {
+              url = `${proxy}/${url}`;
+            } else {
+              url = `${proxy}?url=${encodeURIComponent(url)}`;
+            }
           }
           const hdrs = {};
           if (ch.headers?.referer) hdrs['X-Proxy-Referer'] = ch.headers.referer;
