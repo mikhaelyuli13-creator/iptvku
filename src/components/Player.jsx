@@ -165,7 +165,8 @@ const Player = ({ source, title }) => {
         // Jika request mengarah ke root proxy karena resolusi browser (kehilangan konteks target)
         if (originalUrl.startsWith(proxyOrigin)) {
           const relativePath = originalUrl.slice(proxyOrigin.length);
-          if (!relativePath.startsWith('/http:/') && !relativePath.startsWith('/https:/')) {
+          // Cek apakah relativePath tidak mengandung protokol target sama sekali (artinya ini file segmen pecah/relatif)
+          if (!relativePath.includes('http:/') && !relativePath.includes('https:/') && !relativePath.includes('http://') && !relativePath.includes('https://')) {
             try {
               // Hilangkan leading slash agar teresolusi secara relatif terhadap targetBaseUrl
               const cleanRelPath = relativePath.replace(/^\//, '');
