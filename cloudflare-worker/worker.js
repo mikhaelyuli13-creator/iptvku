@@ -89,21 +89,34 @@ export default {
     // Set Referer yang sesuai
     if (proxyReferer) {
       outHeaders.set('Referer', proxyReferer);
-    } else if (targetUrlString.includes('visionplus.id')) {
-      outHeaders.set('Referer', 'https://www.visionplus.id/');
-    } else if (targetUrlString.includes('transvision.co.id')) {
-      outHeaders.set('Referer', 'https://www.transvision.co.id/');
-    } else if (targetUrlString.includes('indihometv.com')) {
-      outHeaders.set('Referer', 'https://www.indihometv.com/');
-    } else if (targetUrlString.includes('cnnindonesia.com')) {
-      outHeaders.set('Referer', 'https://www.cnnindonesia.com/');
-    } else if (targetUrlString.includes('cnbcindonesia.com')) {
-      outHeaders.set('Referer', 'https://www.cnbcindonesia.com/');
-    } else if (targetUrlString.includes('detik.com')) {
-      outHeaders.set('Referer', 'https://www.detik.com/');
     } else {
-      outHeaders.set('Referer', targetUrl.origin + '/');
+      const lowerTarget = targetUrlString.toLowerCase();
+      if (
+        lowerTarget.includes('visionplus.id') ||
+        lowerTarget.includes('rctiplus.com') ||
+        lowerTarget.includes('cloudfront.net') ||
+        lowerTarget.includes('/out/v1/')
+      ) {
+        outHeaders.set('Referer', 'https://www.visionplus.id/');
+      } else if (lowerTarget.includes('transvision.co.id') || lowerTarget.includes('transvision')) {
+        outHeaders.set('Referer', 'https://www.transvision.co.id/');
+      } else if (lowerTarget.includes('indihometv.com') || lowerTarget.includes('indihometv')) {
+        outHeaders.set('Referer', 'https://www.indihometv.com/');
+      } else if (lowerTarget.includes('cnnindonesia.com')) {
+        outHeaders.set('Referer', 'https://www.cnnindonesia.com/');
+      } else if (lowerTarget.includes('cnbcindonesia.com')) {
+        outHeaders.set('Referer', 'https://www.cnbcindonesia.com/');
+      } else if (lowerTarget.includes('detik.com')) {
+        outHeaders.set('Referer', 'https://www.detik.com/');
+      } else if (lowerTarget.includes('dens.tv')) {
+        outHeaders.set('Referer', 'http://www.dens.tv/');
+      } else if (lowerTarget.includes('vidio.com')) {
+        outHeaders.set('Referer', 'https://www.vidio.com/');
+      } else {
+        outHeaders.set('Referer', targetUrl.origin + '/');
+      }
     }
+
 
     // Set User-Agent
     if (proxyUserAgent) {

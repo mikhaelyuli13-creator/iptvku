@@ -169,11 +169,8 @@ export async function fetchAndParseM3U(url) {
   let fetchUrl = url;
   const proxy = import.meta.env.VITE_PROXY_URL || (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1' ? '/proxy' : 'http://localhost:8080');
   if (url.startsWith('http') && !url.includes('localhost') && !url.includes(proxy)) {
-    if (proxy.includes('localhost') || proxy.includes('127.0.0.1')) {
-      fetchUrl = `${proxy}/${url}`;
-    } else {
-      fetchUrl = `${proxy}?url=${encodeURIComponent(url)}`;
-    }
+    const cleanProxy = proxy.replace(/\/$/, '');
+    fetchUrl = `${cleanProxy}/${url}`;
   }
   const resp = await fetch(fetchUrl);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
