@@ -57,20 +57,34 @@ export default {
     // Bangun headers untuk request ke server target
     const outHeaders = new Headers();
 
+    const skipHeaders = [
+      'host',
+      'connection',
+      'keep-alive',
+      'proxy-authenticate',
+      'proxy-authorization',
+      'te',
+      'trailers',
+      'transfer-encoding',
+      'upgrade',
+      'content-length',
+      'origin',
+      'referer'
+    ];
+
     // Salin hampir semua header asli dari client (agar token, auth, DRM headers tetap utuh)
     for (const [key, value] of request.headers.entries()) {
       const lowerKey = key.toLowerCase();
-      // Lewati header yang akan ditulis ulang atau spesifik Cloudflare
+      // Lewati header yang akan ditulis ulang, hop-by-hop, atau spesifik Cloudflare
       if (
-        lowerKey !== 'host' &&
-        lowerKey !== 'origin' &&
-        lowerKey !== 'referer' &&
+        !skipHeaders.includes(lowerKey) &&
         !lowerKey.startsWith('cf-') &&
         !lowerKey.startsWith('x-forwarded-')
       ) {
         outHeaders.set(key, value);
       }
     }
+
 
     // Baca body untuk POST/PUT (DRM license request menggunakan POST binary body)
     let reqBody = undefined;
