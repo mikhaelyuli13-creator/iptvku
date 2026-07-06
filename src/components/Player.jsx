@@ -150,14 +150,29 @@ const Player = ({ source, title }) => {
       // Simpan manifest URL asli sebagai basis untuk resolusi file segmen relatif
       const targetBaseUrl = url;
 
-      // ---- Request filter: Proxy SEMUA request Shaka (manifest + segmen) ----
+      // ---- Request filter: Proxy SEMUA request Shaka (manifest + segmen + DRM) ----
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         const originalUrl = request.uris[0];
         if (!originalUrl) return;
 
-        // Tambahkan custom headers jika ada
-        if (hdrs?.referer) request.headers['X-Proxy-Referer'] = hdrs.referer;
-        if (hdrs?.userAgent) request.headers['X-Proxy-User-Agent'] = hdrs.userAgent;
+        // 1. Tangani Request Lisensi DRM (Widevine/ClearKey)
+        // Jika request type adalah LICENSE (nilai konstan = 2), pasang custom DRM headers
+        if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
+          if (hdrs) {
+            for (const [key, value] of Object.entries(hdrs)) {
+              // Abaikan referer dan userAgent karena sudah ditangani di bawah
+              if (key !== 'referer' && key !== 'userAgent') {
+                request.headers[key] = value;
+              }
+            }
+          }
+        }
+
+        // Tambahkan custom proxy headers jika ada (Hanya untuk manifest/segmen)
+        if (type !== shaka.net.NetworkingEngine.RequestType.LICENSE) {
+          if (hdrs?.referer) request.headers['X-Proxy-Referer'] = hdrs.referer;
+          if (hdrs?.userAgent) request.headers['X-Proxy-User-Agent'] = hdrs.userAgent;
+        }
 
         const proxyUrlObj = new URL(activeProxy);
         const proxyOrigin = proxyUrlObj.origin;
@@ -177,6 +192,12 @@ const Player = ({ source, title }) => {
             }
             return;
           }
+        }
+
+        // Jangan proxy request Lisensi DRM! Biarkan browser me-request langsung ke server lisensi.
+        // Server lisensi (seperti Cloudflare Worker) biasanya sudah mengatur CORS sendiri.
+        if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
+          return;
         }
 
         // Proxy semua request yang belum melalui proxy

@@ -171,11 +171,35 @@ export default async function handler(req, res) {
     delete clientHeaders['x-proxy-referer'];
     delete clientHeaders['x-proxy-user-agent'];
 
-    const proxyKR = await findKoreaProxy();
-    const agent = proxyKR ? new ProxyAgent({ getProxyForUrl: () => 'http://' + proxyKR }) : null;
+    // --- PRIORITAS PROXY ---
+    // 1. Gunakan Oracle Cloud Seoul (FORWARD_PROXY_URL) jika sudah dikonfigurasi
+    // 2. Fallback ke free proxy Korea dari ProxyScrape/Geonode
+    const ORACLE_PROXY = process.env.FORWARD_PROXY_URL;
+    let proxyUrl = null;
+    let proxySource = 'none';
 
-    if (proxyKR) {
-      res.setHeader('X-Proxied-By-KR-IP', proxyKR);
+    if (ORACLE_PROXY) {
+      // Pakai Oracle Cloud Seoul langsung, tanpa scan
+      proxyUrl = ORACLE_PROXY;
+      proxySource = 'oracle';
+    } else {
+      // Fallback: scan proxy Korea gratis
+      const freeProxy = await findKoreaProxy();
+      if (freeProxy) {
+        proxyUrl = 'http://' + freeProxy;
+        proxySource = 'free';
+      }
+    }
+
+    const agent = proxyUrl
+      ? new ProxyAgent({ getProxyForUrl: () => proxyUrl })
+      : null;
+
+    res.setHeader('X-Proxy-Source', proxySource);
+    if (proxyUrl) {
+      // Sembunyikan kredensial dari header response
+      const safeProxyUrl = proxyUrl.replace(/:\/\/[^@]+@/, '://***@');
+      res.setHeader('X-Proxied-Via', safeProxyUrl);
     }
 
     // Baca request body jika ada
@@ -224,6 +248,14 @@ export default async function handler(req, res) {
       }
       outReq.end();
     });
+
+    // Validasi: jika server mengembalikan HTML padahal kita minta stream,
+    // kembalikan 502 agar Shaka Player tidak crash saat mencoba parsing HTML
+    const responseContentType = (responseData.headers['content-type'] || '').toLowerCase();
+    const isVideoRequest = targetUrlString.match(/\.(m3u8|mpd|ts|mp4|aac|vtt|fmp4)(\?.*)?$/i);
+    if (isVideoRequest && responseContentType.includes('text/html') && responseData.statusCode === 200) {
+      return res.status(502).send('Proxy Korea Error: Target returned HTML instead of stream content. Stream may be geo-blocked or URL is invalid.');
+    }
 
     for (const [key, value] of Object.entries(responseData.headers)) {
       const lowerKey = key.toLowerCase();

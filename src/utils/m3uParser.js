@@ -112,6 +112,19 @@ export function parseM3UText(text) {
       continue;
     }
 
+    // ---- EXTHTTP — Custom HTTP Headers (khususnya untuk DRM) ----
+    if (line.startsWith('#EXTHTTP:')) {
+      try {
+        const jsonStr = line.substring(9).trim();
+        const customHeaders = JSON.parse(jsonStr);
+        // Gabungkan semua custom header (seperti dt-custom-data) ke objek headers
+        headers = { ...headers, ...customHeaders };
+      } catch (e) {
+        console.error('Gagal parse #EXTHTTP:', e);
+      }
+      continue;
+    }
+
     // ---- Skip other directive lines (#EXTVLCOPT--, dll) ----
     if (line.startsWith('#')) continue;
 
