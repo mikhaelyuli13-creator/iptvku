@@ -174,7 +174,16 @@ const Player = ({ source, title }) => {
             if (defaultProxy.startsWith('/')) {
               drmProxy = window.location.origin + defaultProxy;
             }
-            request.uris = [`${drmProxy}/${originalUrl}`];
+            
+            // HANYA proxy jika belum pernah di-proxy
+            const isAlreadyProxied = originalUrl.includes('/api/proxy') || 
+                                     originalUrl.includes('/.netlify/functions') || 
+                                     originalUrl.includes('/proxy') || 
+                                     originalUrl.includes(':8080');
+                                     
+            if (!isAlreadyProxied) {
+              request.uris = [`${drmProxy}/${originalUrl}`];
+            }
           }
           return;
         }

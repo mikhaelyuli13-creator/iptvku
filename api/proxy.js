@@ -165,3 +165,10 @@ export default async function handler(req, res) {
     res.status(502).send('Proxy Error: ' + error.message);
   }
 }
+
+// Menonaktifkan bodyParser agar request stream biner POST (lisensi DRM) dapat dibaca secara utuh oleh req.on('data')
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+};
