@@ -157,6 +157,7 @@ const Player = ({ source, title }) => {
 
         // 1. Tangani Request Lisensi DRM (Widevine/ClearKey)
         // Jika request type adalah LICENSE (nilai konstan = 2), pasang custom DRM headers
+        // Dan proxy melalui SAME-ORIGIN proxy (defaultProxy) untuk menghindari CORS!
         if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
           if (hdrs) {
             for (const [key, value] of Object.entries(hdrs)) {
@@ -166,13 +167,21 @@ const Player = ({ source, title }) => {
               }
             }
           }
+
+          // Selalu proxy request lisensi DRM melalui proxy lokal/same-origin untuk membypass CORS
+          if (originalUrl.startsWith('http') && !originalUrl.includes('localhost') && !originalUrl.includes('127.0.0.1')) {
+            let drmProxy = defaultProxy;
+            if (defaultProxy.startsWith('/')) {
+              drmProxy = window.location.origin + defaultProxy;
+            }
+            request.uris = [`${drmProxy}/${originalUrl}`];
+          }
+          return;
         }
 
         // Tambahkan custom proxy headers jika ada (Hanya untuk manifest/segmen)
-        if (type !== shaka.net.NetworkingEngine.RequestType.LICENSE) {
-          if (hdrs?.referer) request.headers['X-Proxy-Referer'] = hdrs.referer;
-          if (hdrs?.userAgent) request.headers['X-Proxy-User-Agent'] = hdrs.userAgent;
-        }
+        if (hdrs?.referer) request.headers['X-Proxy-Referer'] = hdrs.referer;
+        if (hdrs?.userAgent) request.headers['X-Proxy-User-Agent'] = hdrs.userAgent;
 
         const proxyUrlObj = new URL(activeProxy);
         const proxyOrigin = proxyUrlObj.origin;
@@ -192,12 +201,6 @@ const Player = ({ source, title }) => {
             }
             return;
           }
-        }
-
-        // Jangan proxy request Lisensi DRM! Biarkan browser me-request langsung ke server lisensi.
-        // Server lisensi (seperti Cloudflare Worker) biasanya sudah mengatur CORS sendiri.
-        if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
-          return;
         }
 
         // Proxy semua request yang belum melalui proxy
