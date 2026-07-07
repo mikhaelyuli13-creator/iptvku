@@ -63,6 +63,7 @@ export default async function handler(req, res) {
     const proxyReferer = req.headers['x-proxy-referer'];
     const proxyUserAgent = req.headers['x-proxy-user-agent'];
 
+    const lowerTarget = targetUrlString.toLowerCase();
     if (lowerTarget.includes('streamized.net')) {
       // OVERRIDE MUTLAK: Jika targetnya adalah streamized.net (termasuk DRM), selalu gunakan watch.streamized.net
       // Ini mencegah error 403 jika X-Proxy-Referer mengirim referer lain (misal: visionplus.id dari playlist)
