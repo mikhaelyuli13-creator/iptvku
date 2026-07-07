@@ -76,15 +76,22 @@ export default function App() {
         return;
       }
       try {
-        const [chRes, mvRes] = await Promise.all([
+        const fetchPromise = Promise.all([
           supabase.from('channels').select('*'),
           supabase.from('movies').select('*')
         ]);
         
+        // Timeout after 5 seconds to avoid infinite loading
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Supabase fetch timeout')), 5000)
+        );
+
+        const [chRes, mvRes] = await Promise.race([fetchPromise, timeoutPromise]);
+        
         setChannels(chRes.data && chRes.data.length > 0 ? chRes.data : defaultChannels);
         setMovies(mvRes.data && mvRes.data.length > 0 ? mvRes.data : defaultMovies);
       } catch (err) {
-        console.error("Gagal mengambil data dari Supabase:", err);
+        console.error("Gagal mengambil data dari Supabase (timeout/error):", err);
         setChannels(defaultChannels);
         setMovies(defaultMovies);
       }
