@@ -70,9 +70,15 @@ export function parseM3UText(text) {
       const nameCommaMatch = line.match(/,(.+)$/);
       current.name = (nameTagMatch?.[1] || nameCommaMatch?.[1] || 'Unknown Channel').trim();
 
-      // tvg-logo
+      // tvg-logo (otomatis upgrade ke https untuk menghindari mixed content)
       const logoMatch = line.match(/tvg-logo="([^"]+)"/);
-      if (logoMatch) current.logo = logoMatch[1];
+      if (logoMatch) {
+        let logoUrl = logoMatch[1];
+        if (logoUrl.startsWith('http://')) {
+          logoUrl = logoUrl.replace('http://', 'https://');
+        }
+        current.logo = logoUrl;
+      }
 
       // group-title (category)
       const groupMatch = line.match(/group-title="([^"]+)"/);
@@ -323,7 +329,10 @@ function parseJsonPlaylist(json) {
 
     const catKey = isBase64Encoded ? decodeBase64(ch.category) : ch.category;
     const category = categories[catKey] || 'Lainnya';
-    const logo = isBase64Encoded ? decodeBase64(ch.icon) : ch.icon;
+    let logo = isBase64Encoded ? decodeBase64(ch.icon) : ch.icon;
+    if (logo && logo.startsWith('http://')) {
+      logo = logo.replace('http://', 'https://');
+    }
 
     const drmType = isBase64Encoded ? decodeBase64(ch.drm_type) : ch.drm_type;
     const drmKey = isBase64Encoded ? decodeBase64(ch.drm_key) : ch.drm_key;
