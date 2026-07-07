@@ -108,6 +108,8 @@ export const handler = async (event) => {
 
     if (proxyUserAgent) {
       clientHeaders['User-Agent'] = proxyUserAgent;
+    } else if (targetUrlString.toLowerCase().includes('semar.my.id')) {
+      clientHeaders['User-Agent'] = 'OTT Navigator/1.6.9.4';
     } else {
       clientHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
     }

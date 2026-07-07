@@ -40,6 +40,8 @@ export function parseM3UText(text) {
   let drmType = null;
   let drmLicenseKey = null;
   let drmLicenseServer = null;
+  let mimetype = null;
+  let manifestType = null;
   let headers = {};
 
   const resetBlock = () => {
@@ -47,6 +49,8 @@ export function parseM3UText(text) {
     drmType = null;
     drmLicenseKey = null;
     drmLicenseServer = null;
+    mimetype = null;
+    manifestType = null;
     headers = {};
   };
 
@@ -97,6 +101,10 @@ export function parseM3UText(text) {
         } else {
           drmLicenseKey = value;
         }
+      } else if (key === 'mimetype') {
+        mimetype = value.toLowerCase();
+      } else if (key === 'inputstream.adaptive.manifest_type') {
+        manifestType = value.toLowerCase();
       }
       continue;
     }
@@ -133,22 +141,47 @@ export function parseM3UText(text) {
       // Only take the FIRST valid URL per block
       if (!current.url) {
         current.url = line;
-        current.type = line.endsWith('.mpd') ? 'dash' : 'hls';
+
+        // Cek tipe stream (dash/hls) secara cerdas
+        let isDash = false;
+        try {
+          const urlObj = new URL(line);
+          const pathname = urlObj.pathname.toLowerCase();
+          isDash = pathname.endsWith('.mpd') || 
+                   pathname.includes('.mpd') || 
+                   mimetype === 'application/dash+xml' || 
+                   manifestType === 'dash';
+        } catch (e) {
+          isDash = line.includes('.mpd');
+        }
+        current.type = isDash ? 'dash' : 'hls';
 
         // Apply DRM
         if (drmType) {
-          if (drmType === 'clearkey' && drmLicenseKey) {
-            current.drm = {
-              type: 'clearkey',
-              clearKeys: parseClearKey(drmLicenseKey),
-            };
-          } else if (drmType === 'widevine' && drmLicenseServer) {
+          if (drmType === 'clearkey') {
+            if (drmLicenseServer) {
+              current.drm = {
+                type: 'clearkey',
+                licenseServer: drmLicenseServer,
+              };
+            } else if (drmLicenseKey) {
+              current.drm = {
+                type: 'clearkey',
+                clearKeys: parseClearKey(drmLicenseKey),
+              };
+            } else {
+              current.drm = { type: 'clearkey', licenseServer: null };
+            }
+          } else if (drmType === 'widevine') {
             current.drm = {
               type: 'widevine',
-              licenseServer: drmLicenseServer,
+              licenseServer: drmLicenseServer || null,
             };
-          } else if (drmType === 'widevine') {
-            current.drm = { type: 'widevine', licenseServer: null };
+          } else {
+            current.drm = {
+              type: drmType,
+              licenseServer: drmLicenseServer || null,
+            };
           }
         }
 

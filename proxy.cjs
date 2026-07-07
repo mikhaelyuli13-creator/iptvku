@@ -80,6 +80,9 @@ app.use('/', (req, res, next) => {
                 // 2. User-Agent
                 if (req.headers['x-proxy-user-agent']) {
                     proxyReq.setHeader('User-Agent', req.headers['x-proxy-user-agent']);
+                } else if (targetUrlString.toLowerCase().includes('semar.my.id')) {
+                    // Autodeteksi untuk Semar IPTV
+                    proxyReq.setHeader('User-Agent', 'OTT Navigator/1.6.9.4');
                 } else {
                     // Fallback generic User-Agent agar tidak pakai curl/node
                     proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36');

@@ -19,7 +19,20 @@ const Player = ({ source, title }) => {
   const getUrl = (src) => (typeof src === 'string' ? src : src?.url);
   const getType = (src) => {
     const url = getUrl(src);
-    if (src?.type === 'dash' || url?.endsWith('.mpd')) return 'dash';
+    if (!url) return 'hls';
+    if (src?.type === 'dash') return 'dash';
+    
+    // Cek ekstensi dari URL asli (meskipun sudah diproxy) secara cerdas
+    try {
+      const decodedUrl = decodeURIComponent(url);
+      const urlObj = new URL(decodedUrl);
+      const pathname = urlObj.pathname.toLowerCase();
+      if (pathname.endsWith('.mpd') || pathname.includes('.mpd') || decodedUrl.includes('.mpd')) {
+        return 'dash';
+      }
+    } catch (e) {
+      if (url.includes('.mpd')) return 'dash';
+    }
     return 'hls';
   };
   const getDrm = (src) => (typeof src === 'object' ? src?.drm : null);
@@ -62,12 +75,23 @@ const Player = ({ source, title }) => {
       const hdrs = getHeaders(src);
       const drmConfig = {};
 
-      if (drmInfo?.type === 'clearkey' && drmInfo.clearKeys) {
-        drmConfig.clearKeys = drmInfo.clearKeys;
+      if (drmInfo?.type === 'clearkey') {
+        if (drmInfo.clearKeys) {
+          drmConfig.clearKeys = drmInfo.clearKeys;
+        } else if (drmInfo.licenseServer) {
+          drmConfig.servers = {
+            'org.w3.clearkey': drmInfo.licenseServer,
+          };
+        }
       } else if (drmInfo?.type === 'widevine' && drmInfo.licenseServer) {
         // License URL akan diproxy otomatis oleh request filter di bawah
         drmConfig.servers = {
           'com.widevine.alpha': drmInfo.licenseServer,
+        };
+      } else if (drmInfo?.type && drmInfo.type !== 'none' && drmInfo.licenseServer) {
+        // Fallback untuk tipe DRM lainnya yang memiliki licenseServer
+        drmConfig.servers = {
+          [drmInfo.type]: drmInfo.licenseServer,
         };
       }
 
@@ -161,11 +185,14 @@ const Player = ({ source, title }) => {
         if (type === shaka.net.NetworkingEngine.RequestType.LICENSE) {
           if (hdrs) {
             for (const [key, value] of Object.entries(hdrs)) {
-              // Abaikan referer dan userAgent karena sudah ditangani di bawah
+              // Abaikan referer dan userAgent asli karena diatur sebagai X-Proxy headers
               if (key !== 'referer' && key !== 'userAgent') {
                 request.headers[key] = value;
               }
             }
+            // Kirim custom proxy headers untuk bypass restriksi server lisensi DRM
+            if (hdrs.referer) request.headers['X-Proxy-Referer'] = hdrs.referer;
+            if (hdrs.userAgent) request.headers['X-Proxy-User-Agent'] = hdrs.userAgent;
           }
 
           // Selalu proxy request lisensi DRM melalui proxy lokal/same-origin untuk membypass CORS
