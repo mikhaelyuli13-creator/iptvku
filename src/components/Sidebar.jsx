@@ -57,6 +57,20 @@ const Sidebar = ({ currentView, onNavigate, playlistUrl, onPlaylistLoad }) => {
       <div style={{ padding: '0 var(--space-md) var(--space-sm) var(--space-md)', display: 'flex', flexDirection: 'column', gap: 6 }}>
         <button
           className="btn-load"
+          style={{ width: '100%', textAlign: 'left', background: 'linear-gradient(135deg, rgba(108, 99, 255, 0.25), rgba(184, 109, 255, 0.25))', border: '1px solid var(--accent-primary)', padding: '6px 10px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'all var(--transition-fast)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'bold' }}
+          onClick={() => {
+            const localUrl = window.location.origin + '/streamvault.m3u';
+            setInputUrl(localUrl);
+            onPlaylistLoad(localUrl);
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-secondary)'; e.currentTarget.style.boxShadow = '0 0 8px rgba(108, 99, 255, 0.3)'; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--accent-primary)'; e.currentTarget.style.boxShadow = 'none'; }}
+        >
+          <span>👑</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>StreamVault Unified (Lokal)</span>
+        </button>
+        <button
+          className="btn-load"
           style={{ width: '100%', textAlign: 'left', background: 'var(--bg-glass)', border: '1px solid var(--bg-glass-border)', padding: '6px 10px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'all var(--transition-fast)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}
           onClick={() => { setInputUrl('https://play.streamo.cfd/playlist.m3u?source=eth'); onPlaylistLoad('https://play.streamo.cfd/playlist.m3u?source=eth'); }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-primary)'; e.currentTarget.style.background = 'rgba(108, 99, 255, 0.1)'; }}
