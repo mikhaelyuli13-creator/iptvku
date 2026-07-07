@@ -265,5 +265,144 @@ export async function fetchAndParseM3U(url) {
   const resp = await fetch(fetchUrl);
   if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
   const text = await resp.text();
+  
+  // Deteksi format playlist JSON (seperti Semar IPTV)
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    try {
+      const parsedJson = JSON.parse(text);
+      if (parsedJson.channels || parsedJson.categories) {
+        return parseJsonPlaylist(parsedJson);
+      }
+    } catch (e) {
+      console.error('Gagal parse JSON playlist:', e);
+    }
+  }
+
   return parseM3UText(text);
+}
+
+function parseJsonPlaylist(json) {
+  const channels = [];
+  let id = Date.now();
+
+  const decodeBase64 = (str) => {
+    if (!str) return '';
+    try {
+      // Decode unicode/utf-8 base64 di browser
+      return decodeURIComponent(escape(atob(str)));
+    } catch {
+      try {
+        return atob(str);
+      } catch {
+        return str;
+      }
+    }
+  };
+
+  const isBase64Encoded = json.provider?.base64 === '*';
+  const rawCategories = json.categories || {};
+  const categories = {};
+
+  // Decode categories
+  for (const [key, cat] of Object.entries(rawCategories)) {
+    const decodedName = isBase64Encoded ? decodeBase64(cat.name) : cat.name;
+    categories[key] = decodedName;
+  }
+
+  const rawChannels = json.channels || [];
+  for (const ch of rawChannels) {
+    const name = isBase64Encoded ? decodeBase64(ch.name) : ch.name;
+    const url = isBase64Encoded ? decodeBase64(ch.url) : ch.url;
+    if (!name || !url) continue;
+
+    const catKey = isBase64Encoded ? decodeBase64(ch.category) : ch.category;
+    const category = categories[catKey] || 'Lainnya';
+    const logo = isBase64Encoded ? decodeBase64(ch.icon) : ch.icon;
+
+    const drmType = isBase64Encoded ? decodeBase64(ch.drm_type) : ch.drm_type;
+    const drmKey = isBase64Encoded ? decodeBase64(ch.drm_key) : ch.drm_key;
+    const drmUrl = isBase64Encoded ? decodeBase64(ch.drm_url) : ch.drm_url;
+
+    const userAgent = isBase64Encoded ? decodeBase64(ch.user_agent) : ch.user_agent;
+    const referrer = isBase64Encoded ? decodeBase64(ch.referrer) : ch.referrer;
+
+    // Tentukan jenis stream (dash/hls)
+    const urlLower = url.toLowerCase();
+    const sourceFormat = ch.source_format ? (isBase64Encoded ? decodeBase64(ch.source_format) : ch.source_format) : '';
+    const isDash = urlLower.includes('.mpd') || 
+                   sourceFormat === 'dash' || 
+                   sourceFormat === 'mpd' || 
+                   (drmType && drmType !== 'none');
+
+    const channel = {
+      id: id++,
+      name,
+      url,
+      logo: logo || null,
+      category,
+      type: isDash ? 'dash' : 'hls',
+      headers: {}
+    };
+
+    // Pasang DRM
+    if (drmType && drmType !== 'none') {
+      const normalizedDrm = normalizeDrmType(drmType);
+      if (normalizedDrm === 'clearkey') {
+        if (drmUrl) {
+          channel.drm = {
+            type: 'clearkey',
+            licenseServer: drmUrl,
+          };
+        } else if (drmKey) {
+          channel.drm = {
+            type: 'clearkey',
+            clearKeys: parseClearKey(drmKey),
+          };
+        } else {
+          channel.drm = { type: 'clearkey', licenseServer: null };
+        }
+      } else if (normalizedDrm === 'widevine') {
+        channel.drm = {
+          type: 'widevine',
+          licenseServer: drmUrl || drmKey || null,
+        };
+      } else {
+        channel.drm = {
+          type: normalizedDrm,
+          licenseServer: drmUrl || drmKey || null,
+        };
+      }
+    }
+
+    // Pasang headers
+    if (referrer) channel.headers.referer = referrer;
+    if (userAgent) channel.headers.userAgent = userAgent;
+
+    // Tambahkan custom headers tambahan jika ada
+    if (ch.headers) {
+      let extraHeaders = ch.headers;
+      if (typeof extraHeaders === 'string' && isBase64Encoded) {
+        try {
+          extraHeaders = JSON.parse(decodeBase64(extraHeaders));
+        } catch {
+          extraHeaders = {};
+        }
+      }
+      if (typeof extraHeaders === 'object') {
+        for (const [k, v] of Object.entries(extraHeaders)) {
+          const val = isBase64Encoded ? decodeBase64(v) : v;
+          channel.headers[k] = val;
+        }
+      }
+    }
+
+    if (Object.keys(channel.headers).length === 0) {
+      delete channel.headers;
+    }
+
+    channels.push(channel);
+  }
+
+  return channels;
 }
