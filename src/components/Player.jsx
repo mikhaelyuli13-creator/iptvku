@@ -143,7 +143,10 @@ const Player = ({ source, title }) => {
         'iscs.co.kr',
         'ctnd.com',
         'ktv.go.kr',
-        'obs.co.kr'
+        'obs.co.kr',
+        'streamo.cfd',
+        'streamized.net',
+        'semar.my.id'
       ];
 
       const shouldOverrideToNetlify = netlifyOverrideDomains.some(domain => url.includes(domain)) && !url.includes(cleanProxy);

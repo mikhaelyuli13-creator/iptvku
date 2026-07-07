@@ -496,7 +496,10 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
             'iscs.co.kr',
             'ctnd.com',
             'ktv.go.kr',
-            'obs.co.kr'
+            'obs.co.kr',
+            'streamo.cfd',
+            'streamized.net',
+            'semar.my.id'
           ];
 
           const shouldOverrideToNetlify = netlifyOverrideDomains.some(domain => ch.url.includes(domain)) && !ch.url.includes(cleanProxy);
