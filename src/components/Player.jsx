@@ -257,8 +257,12 @@ const Player = ({ source, title }) => {
       }
 
       player.addEventListener('error', (event) => {
-        console.error('Shaka error:', event.detail);
         const code = event.detail?.code;
+        if (code === 7000) {
+          // Abaikan LOAD_INTERRUPTED karena itu adalah interupsi normal saat perpindahan channel cepat
+          return;
+        }
+        console.error('Shaka error:', event.detail);
         let msg = `Error memutar stream (kode: ${code})`;
         if (code === 6007) msg = '🔒 Konten terenkripsi DRM — kunci tidak valid atau kedaluwarsa.';
         else if (code === 4015) msg = '⚠️ Format stream tidak didukung browser ini. Coba gunakan Google Chrome terbaru dan pastikan stream tidak memerlukan codec H.265/HEVC.';
@@ -279,6 +283,11 @@ const Player = ({ source, title }) => {
       videoRef.current?.play().catch(() => {});
 
     } catch (err) {
+      const code = err?.code;
+      if (code === 7000) {
+        // Abaikan LOAD_INTERRUPTED di block catch
+        return;
+      }
       console.error('Player init failed:', err);
       const msg = err?.message || '';
       let userMsg = 'Gagal memuat stream.';
