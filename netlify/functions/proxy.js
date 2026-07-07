@@ -101,6 +101,8 @@ export const handler = async (event) => {
         clientHeaders['Referer'] = 'http://www.dens.tv/';
       } else if (lowerTarget.includes('vidio.com')) {
         clientHeaders['Referer'] = 'https://www.vidio.com/';
+      } else if (lowerTarget.includes('streamized.net')) {
+        clientHeaders['Referer'] = 'https://watch.streamized.net/';
       } else {
         clientHeaders['Referer'] = targetUrl.origin + '/';
       }
