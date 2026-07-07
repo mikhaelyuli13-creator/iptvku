@@ -584,8 +584,11 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
       onConfirm: async () => {
         try {
           const stringIds = selectedChannels.map(id => id.toString());
-          const { error } = await supabase.from('channels').delete().in('id', stringIds);
-          if (error) throw error;
+          for (let i = 0; i < stringIds.length; i += 500) {
+            const chunk = stringIds.slice(i, i + 500);
+            const { error } = await supabase.from('channels').delete().in('id', chunk);
+            if (error) throw error;
+          }
           onUpdateChannels(channels.filter(c => !selectedChannels.includes(c.id)));
           setSelectedChannels([]);
           showToast(`${selectedChannels.length} channel terpilih berhasil dihapus.`);
@@ -604,8 +607,11 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
       onConfirm: async () => {
         try {
           const stringIds = selectedMovies.map(id => id.toString());
-          const { error } = await supabase.from('movies').delete().in('id', stringIds);
-          if (error) throw error;
+          for (let i = 0; i < stringIds.length; i += 500) {
+            const chunk = stringIds.slice(i, i + 500);
+            const { error } = await supabase.from('movies').delete().in('id', chunk);
+            if (error) throw error;
+          }
           onUpdateMovies(movies.filter(m => !selectedMovies.includes(m.id)));
           setSelectedMovies([]);
           showToast(`${selectedMovies.length} film terpilih berhasil dihapus.`);
@@ -627,8 +633,11 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
       message: `Hapus ${deadIds.length} channel mati? Tindakan ini tidak bisa dibatalkan.`,
       onConfirm: async () => {
         try {
-          const { error } = await supabase.from('channels').delete().in('id', deadIds);
-          if (error) throw error;
+          for (let i = 0; i < deadIds.length; i += 500) {
+            const chunk = deadIds.slice(i, i + 500);
+            const { error } = await supabase.from('channels').delete().in('id', chunk);
+            if (error) throw error;
+          }
 
           onUpdateChannels(channels.filter(c => !deadIds.includes(c.id.toString())));
           showToast(`${deadIds.length} channel mati berhasil dihapus.`);
