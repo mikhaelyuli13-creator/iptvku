@@ -63,10 +63,13 @@ export default async function handler(req, res) {
     const proxyReferer = req.headers['x-proxy-referer'];
     const proxyUserAgent = req.headers['x-proxy-user-agent'];
 
-    if (proxyReferer) {
+    if (lowerTarget.includes('streamized.net')) {
+      // OVERRIDE MUTLAK: Jika targetnya adalah streamized.net (termasuk DRM), selalu gunakan watch.streamized.net
+      // Ini mencegah error 403 jika X-Proxy-Referer mengirim referer lain (misal: visionplus.id dari playlist)
+      clientHeaders['Referer'] = 'https://watch.streamized.net/';
+    } else if (proxyReferer) {
       clientHeaders['Referer'] = proxyReferer;
     } else {
-      const lowerTarget = targetUrlString.toLowerCase();
       if (
         lowerTarget.includes('visionplus.id') ||
         lowerTarget.includes('rctiplus.com') ||
@@ -90,8 +93,6 @@ export default async function handler(req, res) {
         clientHeaders['Referer'] = 'http://www.dens.tv/';
       } else if (lowerTarget.includes('vidio.com')) {
         clientHeaders['Referer'] = 'https://www.vidio.com/';
-      } else if (lowerTarget.includes('streamized.net')) {
-        clientHeaders['Referer'] = 'https://watch.streamized.net/';
       } else {
         clientHeaders['Referer'] = targetUrl.origin + '/';
       }
