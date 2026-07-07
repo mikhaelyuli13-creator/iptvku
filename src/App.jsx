@@ -11,7 +11,7 @@ import MovieModal from './components/MovieModal';
 import AdminLogin from './components/AdminLogin';
 import { fetchAndParseM3U, parseM3UText } from './utils/m3uParser';
 import AdminPanel from './components/AdminPanel';
-import { supabase } from './lib/supabaseClient';
+import { supabase, hasSupabase } from './lib/supabaseClient';
 
 import defaultChannels from './data/channels';
 import defaultMovies from './data/movies';
@@ -69,6 +69,12 @@ export default function App() {
   useEffect(() => {
     const fetchData = async () => {
       setIsDataLoading(true);
+      if (!hasSupabase) {
+        setChannels(defaultChannels);
+        setMovies(defaultMovies);
+        setIsDataLoading(false);
+        return;
+      }
       try {
         const [chRes, mvRes] = await Promise.all([
           supabase.from('channels').select('*'),

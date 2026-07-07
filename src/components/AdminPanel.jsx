@@ -4,7 +4,7 @@ import {
   Save, X, Upload, Link2, ChevronDown, CheckCircle, AlertCircle, LogOut, List, Shield, RefreshCw
 } from 'lucide-react';
 import { fetchAndParseM3U } from '../utils/m3uParser';
-import { supabase } from '../lib/supabaseClient';
+import { supabase, hasSupabase } from '../lib/supabaseClient';
 
 const TABS = [
   { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -701,6 +701,27 @@ const AdminPanel = ({ channels, movies, onUpdateChannels, onUpdateMovies, onLogo
 
       {/* Main Content */}
       <main style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-2xl)' }}>
+
+        {!hasSupabase && (
+          <div style={{
+            background: 'rgba(239, 68, 68, 0.1)',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            borderRadius: 'var(--radius-md)',
+            padding: '12px 16px',
+            marginBottom: 'var(--space-xl)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+            color: '#ff6b6b',
+            fontSize: '0.8rem',
+            lineHeight: 1.4
+          }}>
+            <AlertCircle size={16} style={{ flexShrink: 0 }} />
+            <div>
+              <strong>Mode Demo Terbatas:</strong> Database Supabase belum dikonfigurasi (Variabel environment <code>VITE_SUPABASE_URL</code> dan <code>VITE_SUPABASE_ANON_KEY</code> belum diset). Perubahan data Anda tidak akan disimpan ke database secara permanen.
+            </div>
+          </div>
+        )}
 
         {/* DASHBOARD */}
         {activeTab === 'dashboard' && (
