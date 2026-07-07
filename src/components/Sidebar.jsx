@@ -72,12 +72,16 @@ const Sidebar = ({ currentView, onNavigate, playlistUrl, onPlaylistLoad }) => {
         <button
           className="btn-load"
           style={{ width: '100%', textAlign: 'left', background: 'var(--bg-glass)', border: '1px solid var(--bg-glass-border)', padding: '6px 10px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'all var(--transition-fast)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={() => { setInputUrl('https://play.streamo.cfd/playlist.m3u?source=eth'); onPlaylistLoad('https://play.streamo.cfd/playlist.m3u?source=eth'); }}
+          onClick={() => {
+            const localUrl = window.location.origin + '/streamo.m3u8';
+            setInputUrl(localUrl);
+            onPlaylistLoad(localUrl);
+          }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-primary)'; e.currentTarget.style.background = 'rgba(108, 99, 255, 0.1)'; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--bg-glass-border)'; e.currentTarget.style.background = 'var(--bg-glass)'; }}
         >
           <span>🚀</span>
-          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Streamo Special (ETH)</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Streamo Special (Lokal)</span>
         </button>
         <button
           className="btn-load"
