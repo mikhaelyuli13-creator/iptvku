@@ -78,7 +78,7 @@ const Sidebar = ({ currentView, onNavigate, playlistUrl, onPlaylistLoad }) => {
         <button
           className="btn-load"
           style={{ width: '100%', textAlign: 'left', background: 'var(--bg-glass)', border: '1px solid var(--bg-glass-border)', padding: '6px 10px', fontSize: '0.72rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer', transition: 'all var(--transition-fast)', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 6 }}
-          onClick={() => { setInputUrl('http://freeiptv2026.sepak7042.workers.dev'); onPlaylistLoad('http://freeiptv2026.sepak7042.workers.dev'); }}
+          onClick={() => { setInputUrl('https://freeiptv2026.sepak7042.workers.dev'); onPlaylistLoad('https://freeiptv2026.sepak7042.workers.dev'); }}
           onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--accent-primary)'; e.currentTarget.style.background = 'rgba(108, 99, 255, 0.1)'; }}
           onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--bg-glass-border)'; e.currentTarget.style.background = 'var(--bg-glass)'; }}
         >

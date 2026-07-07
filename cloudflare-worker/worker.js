@@ -137,6 +137,8 @@ export default {
     // Set User-Agent
     if (proxyUserAgent) {
       outHeaders.set('User-Agent', proxyUserAgent);
+    } else if (targetUrlString.toLowerCase().includes('semar.my.id') || targetUrlString.toLowerCase().includes('sepak7042.workers.dev')) {
+      outHeaders.set('User-Agent', 'OTT Navigator/1.6.9.4');
     } else {
       outHeaders.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
     }
