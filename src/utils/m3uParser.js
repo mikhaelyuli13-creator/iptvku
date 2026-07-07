@@ -261,7 +261,9 @@ export async function fetchAndParseM3U(url) {
     }
   }
 
-  if (url.startsWith('http') && !url.includes('localhost') && !url.includes(activeProxy)) {
+  const isSameOrigin = typeof window !== 'undefined' && url.includes(window.location.origin);
+
+  if (url.startsWith('http') && !url.includes('localhost') && !url.includes(activeProxy) && !isSameOrigin) {
     fetchUrl = `${activeProxy}/${url}`;
   }
 
